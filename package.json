@@ -1,0 +1,21 @@
+{
+  "name": "discord-ticket-bot",
+  "version": "1.0.0",
+  "description": "Discord ticket system bot for purchasing items",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "pm2": "pm2 start index.js --name discord-ticket-bot",
+    "stop": "pm2 stop discord-ticket-bot",
+    "restart": "pm2 restart discord-ticket-bot",
+    "logs": "pm2 logs discord-ticket-bot",
+    "monitor": "pm2 monit"
+  },
+  "keywords": ["discord", "bot", "tickets"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "pm2": "^5.3.0"
+  }
+}
