@@ -434,6 +434,10 @@ async function showPaymentMethods(interaction) {
         );
 
     await interaction.update({ embeds: [paymentEmbed], components: [paymentRow] });
+    
+    // Update session with new message ID after update
+    session.messageId = interaction.message.id;
+    buyingSessions.set(interaction.user.id, session);
 }
 
 async function showCryptoOptions(interaction) {
@@ -481,6 +485,10 @@ async function showCryptoOptions(interaction) {
         );
 
     await interaction.update({ embeds: [cryptoEmbed], components: [cryptoSelect] });
+    
+    // Update session with new message ID after update
+    session.messageId = interaction.message.id;
+    buyingSessions.set(interaction.user.id, session);
 }
 
 async function showCryptoAddress(interaction) {
@@ -532,6 +540,10 @@ async function showCryptoAddress(interaction) {
         );
 
     await interaction.update({ embeds: [addressEmbed], components: [sendFundsRow] });
+    
+    // Update session with new message ID after update
+    session.messageId = interaction.message.id;
+    buyingSessions.set(interaction.user.id, session);
 }
 
 async function confirmFundsSent(interaction) {
