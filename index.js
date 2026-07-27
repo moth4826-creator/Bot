@@ -432,8 +432,8 @@ async function showPaymentMethods(interaction) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    // Disable old buttons and send new message
-    await interaction.update({ components: [] });
+    // Reply to interaction first, then send new message
+    await interaction.reply({ content: '✅ Loading payment options...', ephemeral: true });
     const newMsg = await interaction.channel.send({ embeds: [paymentEmbed], components: [paymentRow] });
     
     session.messageId = newMsg.id;
@@ -484,8 +484,8 @@ async function showCryptoOptions(interaction) {
                 )
         );
 
-    // Disable old buttons and send new message
-    await interaction.update({ components: [] });
+    // Reply to interaction first, then send new message
+    await interaction.reply({ content: '✅ Loading crypto options...', ephemeral: true });
     const newMsg = await interaction.channel.send({ embeds: [cryptoEmbed], components: [cryptoSelect] });
     
     session.messageId = newMsg.id;
@@ -510,9 +510,9 @@ async function showCryptoAddress(interaction) {
 
     // Define crypto addresses (you can change these to your real addresses)
     const cryptoAddresses = {
-        sol: 'H6eFDS6Gwh2boPGjxYd8kffmmbTj2uZ5gEhL1j1eu3R8 ',
+        sol: 'H6eFDS6Gwh2boPGjxYd8kffmmbTj2uZ5gEhL1j1eu3R8',
         ltc: 'LM9Z3kZft3bQwmRhXyZEQ7zfcZ2swJWExv',
-        eth: '0x154221a1fB3F0Bf49Cde8E19c4201Fb69EcF352A '
+        eth: '0x154221a1fB3F0Bf49Cde8E19c4201Fb69EcF352A'
     };
 
     const cryptoNames = {
@@ -540,8 +540,8 @@ async function showCryptoAddress(interaction) {
                 .setStyle(ButtonStyle.Danger)
         );
 
-    // Disable old dropdown and send new message
-    await interaction.update({ components: [] });
+    // Reply to interaction first, then send new message
+    await interaction.reply({ content: '✅ Loading payment address...', ephemeral: true });
     const newMsg = await interaction.channel.send({ embeds: [addressEmbed], components: [sendFundsRow] });
     
     session.messageId = newMsg.id;
