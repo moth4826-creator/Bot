@@ -455,7 +455,7 @@ async function showCryptoOptions(interaction) {
     buyingSessions.set(interaction.user.id, session);
 
     const cryptoEmbed = new EmbedBuilder()
-        .setTitle('₿ Select a Cryptocurrency')
+        .setTitle('Select a Cryptocurrency')
         .setDescription('Choose your preferred cryptocurrency from the dropdown below.')
         .setColor('#F7931A')
         .setTimestamp();
@@ -466,30 +466,36 @@ async function showCryptoOptions(interaction) {
                 .setCustomId('crypto_select')
                 .setPlaceholder('Select a cryptocurrency')
                 .addOptions(
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('Solana (SOL)')
-                        .setDescription('Pay with Solana')
-                        .setValue('sol')
-                        .setEmoji('◎'),
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('Litecoin (LTC)')
-                        .setDescription('Pay with Litecoin')
-                        .setValue('ltc')
-                        .setEmoji('Ł'),
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('Ethereum (ETH)')
-                        .setDescription('Pay with Ethereum')
-                        .setValue('eth')
-                        .setEmoji('Ξ')
+                    {
+                        label: 'Solana (SOL)',
+                        description: 'Pay with Solana',
+                        value: 'sol'
+                    },
+                    {
+                        label: 'Litecoin (LTC)',
+                        description: 'Pay with Litecoin',
+                        value: 'ltc'
+                    },
+                    {
+                        label: 'Ethereum (ETH)',
+                        description: 'Pay with Ethereum',
+                        value: 'eth'
+                    }
                 )
         );
 
-    // Reply to interaction first, then send new message
-    await interaction.reply({ content: '✅ Loading crypto options...', ephemeral: true });
-    const newMsg = await interaction.channel.send({ embeds: [cryptoEmbed], components: [cryptoSelect] });
-    
-    session.messageId = newMsg.id;
-    buyingSessions.set(interaction.user.id, session);
+    try {
+        // Reply to interaction first
+        await interaction.reply({ content: '✅ Loading crypto options...', ephemeral: true });
+        // Send new message to channel
+        const newMsg = await interaction.channel.send({ embeds: [cryptoEmbed], components: [cryptoSelect] });
+        
+        session.messageId = newMsg.id;
+        buyingSessions.set(interaction.user.id, session);
+    } catch (error) {
+        console.error('Error showing crypto options:', error);
+        await interaction.followUp({ content: '❌ An error occurred. Please try again.', ephemeral: true });
+    }
 }
 
 async function showCryptoAddress(interaction) {
