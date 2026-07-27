@@ -332,6 +332,13 @@ async function showConfirmation(channel, user, item) {
 
     const countdownMsg = await channel.send({ embeds: [countdownEmbed] });
 
+    // Store message ID in session
+    const session = buyingSessions.get(user.id);
+    if (session) {
+        session.messageId = countdownMsg.id;
+        buyingSessions.set(user.id, session);
+    }
+
     // Countdown from 3
     for (let i = 2; i >= 1; i--) {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -364,6 +371,16 @@ async function showConfirmation(channel, user, item) {
 }
 
 async function cancelPurchase(interaction) {
+    const session = buyingSessions.get(interaction.user.id);
+    
+    // Check if this is the correct message
+    if (!session || session.messageId !== interaction.message.id) {
+        return interaction.reply({ 
+            content: '❌ This purchase has already been processed or cancelled.', 
+            ephemeral: true 
+        });
+    }
+
     buyingSessions.delete(interaction.user.id);
 
     const cancelEmbed = new EmbedBuilder()
@@ -377,9 +394,17 @@ async function cancelPurchase(interaction) {
 
 async function showPaymentMethods(interaction) {
     const session = buyingSessions.get(interaction.user.id);
-    if (!session) {
-        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    
+    // Check if session exists and this is the correct message
+    if (!session || session.messageId !== interaction.message.id) {
+        return interaction.reply({ 
+            content: '❌ This purchase has already been processed or cancelled.', 
+            ephemeral: true 
+        });
     }
+
+    session.stage = 'payment_method';
+    buyingSessions.set(interaction.user.id, session);
 
     const paymentEmbed = new EmbedBuilder()
         .setTitle('💳 Choose Your Payment Method')
@@ -401,8 +426,13 @@ async function showPaymentMethods(interaction) {
 
 async function showCryptoOptions(interaction) {
     const session = buyingSessions.get(interaction.user.id);
-    if (!session) {
-        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    
+    // Check if session exists and this is the correct message
+    if (!session || session.messageId !== interaction.message.id) {
+        return interaction.reply({ 
+            content: '❌ This purchase has already been processed or cancelled.', 
+            ephemeral: true 
+        });
     }
 
     session.stage = 'selecting_crypto';
@@ -443,19 +473,25 @@ async function showCryptoOptions(interaction) {
 
 async function showCryptoAddress(interaction) {
     const session = buyingSessions.get(interaction.user.id);
-    if (!session) {
-        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    
+    // Check if session exists and this is the correct message
+    if (!session || session.messageId !== interaction.message.id) {
+        return interaction.reply({ 
+            content: '❌ This purchase has already been processed or cancelled.', 
+            ephemeral: true 
+        });
     }
 
     const cryptoType = interaction.values[0];
     session.cryptoType = cryptoType;
+    session.stage = 'showing_address';
     buyingSessions.set(interaction.user.id, session);
 
     // Define crypto addresses (you can change these to your real addresses)
     const cryptoAddresses = {
-        sol: 'H6eFDS6Gwh2boPGjxYd8kffmmbTj2uZ5gEhL1j1eu3R8',
-        ltc: 'LM9Z3kZft3bQwmRhXyZEQ7zfcZ2swJWExv ',
-        eth: '0x154221a1fB3F0Bf49Cde8E19c4201Fb69EcF352A '
+        sol: 'So1anaAddressHere123456789ABCDEFGHIJK',
+        ltc: 'ltc1vs4Qvx1t8ZkKDayGStv6jJ1gmtnXgycHmHpLQT',
+        eth: '0x1234567890123456789012345678901234567890'
     };
 
     const cryptoNames = {
@@ -488,8 +524,13 @@ async function showCryptoAddress(interaction) {
 
 async function confirmFundsSent(interaction) {
     const session = buyingSessions.get(interaction.user.id);
-    if (!session) {
-        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    
+    // Check if session exists and this is the correct message
+    if (!session || session.messageId !== interaction.message.id) {
+        return interaction.reply({ 
+            content: '❌ This purchase has already been processed or cancelled.', 
+            ephemeral: true 
+        });
     }
 
     // Find the staff role
