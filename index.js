@@ -1,5 +1,8 @@
-const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 const fs = require('fs');
+
+// Store active buying sessions
+const buyingSessions = new Map();
 
 // Load config from environment variables (Railway) or config.json (local)
 const config = {
@@ -30,16 +33,30 @@ const rest = new REST({ version: '10' }).setToken(config.token);
 
 client.once('ready', async () => {
     console.log(`✅ Bot is ready! Logged in as ${client.user.tag}`);
+    console.log(`📋 Config Check:`);
+    console.log(`   - Client ID: ${config.clientId}`);
+    console.log(`   - Guild ID: ${config.guildId}`);
+    console.log(`   - Required Role: ${config.requiredRoleName}`);
+    
+    if (!config.clientId || !config.guildId) {
+        console.error('❌ ERROR: CLIENT_ID or GUILD_ID is missing!');
+        console.error('   Please check your Railway environment variables.');
+        return;
+    }
     
     try {
         console.log('Started refreshing application (/) commands.');
+        console.log(`Registering ${commands.length} command(s) to guild ${config.guildId}...`);
+        
         await rest.put(
             Routes.applicationGuildCommands(config.clientId, config.guildId),
             { body: commands }
         );
-        console.log('Successfully reloaded application (/) commands.');
+        
+        console.log('✅ Successfully reloaded application (/) commands.');
     } catch (error) {
-        console.error('Error registering commands:', error);
+        console.error('❌ Error registering commands:', error);
+        console.error('Full error details:', error.message);
     }
 });
 
@@ -96,12 +113,23 @@ client.on('interactionCreate', async interaction => {
         if (interaction.customId === 'selling') {
             await showSellingInfo(interaction);
         } else if (interaction.customId === 'buying') {
-            await interaction.reply({
-                content: '📥 **Buying Section** - Please let us know what you\'re looking to buy!',
-                ephemeral: true
-            });
+            await startBuyingProcess(interaction);
+        } else if (interaction.customId === 'confirm_purchase') {
+            await showPaymentMethods(interaction);
+        } else if (interaction.customId === 'cancel_purchase') {
+            await cancelPurchase(interaction);
+        } else if (interaction.customId === 'payment_crypto') {
+            await showCryptoOptions(interaction);
+        } else if (interaction.customId === 'sent_funds') {
+            await confirmFundsSent(interaction);
         } else if (interaction.customId === 'close_ticket') {
             await closeTicket(interaction);
+        }
+    }
+    
+    if (interaction.isStringSelectMenu()) {
+        if (interaction.customId === 'crypto_select') {
+            await showCryptoAddress(interaction);
         }
     }
 });
@@ -248,6 +276,258 @@ async function showSellingInfo(interaction) {
         embeds: [discordEmbed, robloxEmbed],
         ephemeral: true
     });
+}
+
+async function startBuyingProcess(interaction) {
+    const buyEmbed = new EmbedBuilder()
+        .setTitle('💰 What would you like to buy?')
+        .setDescription('Please type what you want to purchase in the chat.')
+        .setColor('#00D26A')
+        .setTimestamp();
+
+    await interaction.reply({
+        embeds: [buyEmbed]
+    });
+
+    // Store the session
+    buyingSessions.set(interaction.user.id, {
+        channelId: interaction.channel.id,
+        stage: 'waiting_for_item'
+    });
+
+    // Set up message collector
+    const filter = m => m.author.id === interaction.user.id;
+    const collector = interaction.channel.createMessageCollector({ 
+        filter, 
+        time: 120000, // 2 minutes
+        max: 1 
+    });
+
+    collector.on('collect', async (message) => {
+        const session = buyingSessions.get(interaction.user.id);
+        if (!session || session.stage !== 'waiting_for_item') return;
+
+        // Store the item they want to buy
+        session.item = message.content;
+        session.stage = 'confirming';
+        buyingSessions.set(interaction.user.id, session);
+
+        // Show countdown and confirmation
+        await showConfirmation(message.channel, interaction.user, message.content);
+    });
+
+    collector.on('end', collected => {
+        if (collected.size === 0) {
+            buyingSessions.delete(interaction.user.id);
+        }
+    });
+}
+
+async function showConfirmation(channel, user, item) {
+    const countdownEmbed = new EmbedBuilder()
+        .setTitle('⏳ Confirm Your Purchase')
+        .setDescription(`**Item:** ${item}\n\nConfirming in: 3...`)
+        .setColor('#FFA500')
+        .setTimestamp();
+
+    const countdownMsg = await channel.send({ embeds: [countdownEmbed] });
+
+    // Countdown from 3
+    for (let i = 2; i >= 1; i--) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        countdownEmbed.setDescription(`**Item:** ${item}\n\nConfirming in: ${i}...`);
+        await countdownMsg.edit({ embeds: [countdownEmbed] });
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Show confirm/cancel buttons
+    const confirmEmbed = new EmbedBuilder()
+        .setTitle('✅ Confirm Your Purchase')
+        .setDescription(`**Item:** ${item}\n\nPlease confirm or cancel your purchase.`)
+        .setColor('#00D26A')
+        .setTimestamp();
+
+    const confirmRow = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('confirm_purchase')
+                .setLabel('Confirm')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId('cancel_purchase')
+                .setLabel('Cancel')
+                .setStyle(ButtonStyle.Danger)
+        );
+
+    await countdownMsg.edit({ embeds: [confirmEmbed], components: [confirmRow] });
+}
+
+async function cancelPurchase(interaction) {
+    buyingSessions.delete(interaction.user.id);
+
+    const cancelEmbed = new EmbedBuilder()
+        .setTitle('❌ Purchase Cancelled')
+        .setDescription('Your purchase has been cancelled.')
+        .setColor('#FF0000')
+        .setTimestamp();
+
+    await interaction.update({ embeds: [cancelEmbed], components: [] });
+}
+
+async function showPaymentMethods(interaction) {
+    const session = buyingSessions.get(interaction.user.id);
+    if (!session) {
+        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    }
+
+    const paymentEmbed = new EmbedBuilder()
+        .setTitle('💳 Choose Your Payment Method')
+        .setDescription(`**Item:** ${session.item}\n\nSelect your preferred payment method below.`)
+        .setColor('#5865F2')
+        .setTimestamp();
+
+    const paymentRow = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('payment_crypto')
+                .setLabel('Crypto')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('₿')
+        );
+
+    await interaction.update({ embeds: [paymentEmbed], components: [paymentRow] });
+}
+
+async function showCryptoOptions(interaction) {
+    const session = buyingSessions.get(interaction.user.id);
+    if (!session) {
+        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    }
+
+    session.stage = 'selecting_crypto';
+    buyingSessions.set(interaction.user.id, session);
+
+    const cryptoEmbed = new EmbedBuilder()
+        .setTitle('₿ Select a Cryptocurrency')
+        .setDescription('Choose your preferred cryptocurrency from the dropdown below.')
+        .setColor('#F7931A')
+        .setTimestamp();
+
+    const cryptoSelect = new ActionRowBuilder()
+        .addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('crypto_select')
+                .setPlaceholder('Select a cryptocurrency')
+                .addOptions(
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel('Solana (SOL)')
+                        .setDescription('Pay with Solana')
+                        .setValue('sol')
+                        .setEmoji('◎'),
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel('Litecoin (LTC)')
+                        .setDescription('Pay with Litecoin')
+                        .setValue('ltc')
+                        .setEmoji('Ł'),
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel('Ethereum (ETH)')
+                        .setDescription('Pay with Ethereum')
+                        .setValue('eth')
+                        .setEmoji('Ξ')
+                )
+        );
+
+    await interaction.update({ embeds: [cryptoEmbed], components: [cryptoSelect] });
+}
+
+async function showCryptoAddress(interaction) {
+    const session = buyingSessions.get(interaction.user.id);
+    if (!session) {
+        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    }
+
+    const cryptoType = interaction.values[0];
+    session.cryptoType = cryptoType;
+    buyingSessions.set(interaction.user.id, session);
+
+    // Define crypto addresses (you can change these to your real addresses)
+    const cryptoAddresses = {
+        sol: 'So1anaAddressHere123456789ABCDEFGHIJK',
+        ltc: 'ltc1vs4Qvx1t8ZkKDayGStv6jJ1gmtnXgycHmHpLQT',
+        eth: '0x1234567890123456789012345678901234567890'
+    };
+
+    const cryptoNames = {
+        sol: 'Solana',
+        ltc: 'Litecoin',
+        eth: 'Ethereum'
+    };
+
+    const addressEmbed = new EmbedBuilder()
+        .setTitle(`AutoPay ${cryptoNames[cryptoType]}`)
+        .setDescription(
+            `Only send funds to this ${cryptoNames[cryptoType]} address, once funds are sent they cannot be recovered if sent to the incorrect address.\n\n` +
+            `**${cryptoNames[cryptoType]} Address**\n` +
+            `\`${cryptoAddresses[cryptoType]}\`\n\n` +
+            `Please send the exact amount as shown in the stock channel.`
+        )
+        .setColor('#FF0000')
+        .setTimestamp();
+
+    const sendFundsRow = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('sent_funds')
+                .setLabel('Sent Funds')
+                .setStyle(ButtonStyle.Danger)
+        );
+
+    await interaction.update({ embeds: [addressEmbed], components: [sendFundsRow] });
+}
+
+async function confirmFundsSent(interaction) {
+    const session = buyingSessions.get(interaction.user.id);
+    if (!session) {
+        return interaction.reply({ content: '❌ Session expired. Please start again.', ephemeral: true });
+    }
+
+    // Find the staff role
+    const staffRole = interaction.guild.roles.cache.find(role => role.name === config.requiredRoleName);
+    
+    const waitingEmbed = new EmbedBuilder()
+        .setTitle('⏳ Please Wait')
+        .setDescription('Please wait for support to confirm your order.')
+        .setColor('#FFA500')
+        .setTimestamp();
+
+    await interaction.update({ embeds: [waitingEmbed], components: [] });
+
+    // Ping staff role
+    const staffPingEmbed = new EmbedBuilder()
+        .setTitle('🔔 New Order - Funds Sent')
+        .setDescription(
+            `**Customer:** ${interaction.user}\n` +
+            `**Item:** ${session.item}\n` +
+            `**Payment Method:** ${session.cryptoType?.toUpperCase() || 'Unknown'}\n` +
+            `**Status:** Waiting for confirmation`
+        )
+        .setColor('#00D26A')
+        .setTimestamp();
+
+    if (staffRole) {
+        await interaction.channel.send({
+            content: `${staffRole}`,
+            embeds: [staffPingEmbed]
+        });
+    } else {
+        await interaction.channel.send({
+            embeds: [staffPingEmbed]
+        });
+    }
+
+    // Clean up session
+    buyingSessions.delete(interaction.user.id);
 }
 
 async function closeTicket(interaction) {
