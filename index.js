@@ -386,10 +386,9 @@ async function showConfirmation(channel, user, item) {
 async function cancelPurchase(interaction) {
     const session = buyingSessions.get(interaction.user.id);
     
-    // Check if this is the correct message
-    if (!session || session.messageId !== interaction.message.id) {
+    if (!session) {
         return interaction.reply({ 
-            content: '❌ This purchase has already been processed or cancelled.', 
+            content: '❌ Session expired. Please start again.', 
             ephemeral: true 
         });
     }
@@ -408,15 +407,15 @@ async function cancelPurchase(interaction) {
 async function showPaymentMethods(interaction) {
     const session = buyingSessions.get(interaction.user.id);
     
-    // Check if session exists and this is the correct message
-    if (!session || session.messageId !== interaction.message.id) {
+    if (!session) {
         return interaction.reply({ 
-            content: '❌ This purchase has already been processed or cancelled.', 
+            content: '❌ Session expired. Please start again.', 
             ephemeral: true 
         });
     }
 
     session.stage = 'payment_method';
+    session.lastInteraction = Date.now();
     buyingSessions.set(interaction.user.id, session);
 
     const paymentEmbed = new EmbedBuilder()
@@ -433,25 +432,26 @@ async function showPaymentMethods(interaction) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    await interaction.update({ embeds: [paymentEmbed], components: [paymentRow] });
+    // Disable old buttons and send new message
+    await interaction.update({ components: [] });
+    const newMsg = await interaction.channel.send({ embeds: [paymentEmbed], components: [paymentRow] });
     
-    // Update session with new message ID after update
-    session.messageId = interaction.message.id;
+    session.messageId = newMsg.id;
     buyingSessions.set(interaction.user.id, session);
 }
 
 async function showCryptoOptions(interaction) {
     const session = buyingSessions.get(interaction.user.id);
     
-    // Check if session exists and this is the correct message
-    if (!session || session.messageId !== interaction.message.id) {
+    if (!session) {
         return interaction.reply({ 
-            content: '❌ This purchase has already been processed or cancelled.', 
+            content: '❌ Session expired. Please start again.', 
             ephemeral: true 
         });
     }
 
     session.stage = 'selecting_crypto';
+    session.lastInteraction = Date.now();
     buyingSessions.set(interaction.user.id, session);
 
     const cryptoEmbed = new EmbedBuilder()
@@ -484,20 +484,20 @@ async function showCryptoOptions(interaction) {
                 )
         );
 
-    await interaction.update({ embeds: [cryptoEmbed], components: [cryptoSelect] });
+    // Disable old buttons and send new message
+    await interaction.update({ components: [] });
+    const newMsg = await interaction.channel.send({ embeds: [cryptoEmbed], components: [cryptoSelect] });
     
-    // Update session with new message ID after update
-    session.messageId = interaction.message.id;
+    session.messageId = newMsg.id;
     buyingSessions.set(interaction.user.id, session);
 }
 
 async function showCryptoAddress(interaction) {
     const session = buyingSessions.get(interaction.user.id);
     
-    // Check if session exists and this is the correct message
-    if (!session || session.messageId !== interaction.message.id) {
+    if (!session) {
         return interaction.reply({ 
-            content: '❌ This purchase has already been processed or cancelled.', 
+            content: '❌ Session expired. Please start again.', 
             ephemeral: true 
         });
     }
@@ -505,6 +505,7 @@ async function showCryptoAddress(interaction) {
     const cryptoType = interaction.values[0];
     session.cryptoType = cryptoType;
     session.stage = 'showing_address';
+    session.lastInteraction = Date.now();
     buyingSessions.set(interaction.user.id, session);
 
     // Define crypto addresses (you can change these to your real addresses)
@@ -539,20 +540,20 @@ async function showCryptoAddress(interaction) {
                 .setStyle(ButtonStyle.Danger)
         );
 
-    await interaction.update({ embeds: [addressEmbed], components: [sendFundsRow] });
+    // Disable old dropdown and send new message
+    await interaction.update({ components: [] });
+    const newMsg = await interaction.channel.send({ embeds: [addressEmbed], components: [sendFundsRow] });
     
-    // Update session with new message ID after update
-    session.messageId = interaction.message.id;
+    session.messageId = newMsg.id;
     buyingSessions.set(interaction.user.id, session);
 }
 
 async function confirmFundsSent(interaction) {
     const session = buyingSessions.get(interaction.user.id);
     
-    // Check if session exists and this is the correct message
-    if (!session || session.messageId !== interaction.message.id) {
+    if (!session) {
         return interaction.reply({ 
-            content: '❌ This purchase has already been processed or cancelled.', 
+            content: '❌ Session expired. Please start again.', 
             ephemeral: true 
         });
     }
