@@ -38,22 +38,35 @@ client.once('ready', async () => {
     console.log(`   - Guild ID: ${config.guildId}`);
     console.log(`   - Required Role: ${config.requiredRoleName}`);
     
-    if (!config.clientId || !config.guildId) {
-        console.error('❌ ERROR: CLIENT_ID or GUILD_ID is missing!');
+    if (!config.clientId) {
+        console.error('❌ ERROR: CLIENT_ID is missing!');
         console.error('   Please check your Railway environment variables.');
         return;
     }
     
     try {
         console.log('Started refreshing application (/) commands.');
-        console.log(`Registering ${commands.length} command(s) to guild ${config.guildId}...`);
         
+        // Register commands globally (appears in all servers)
+        console.log(`Registering ${commands.length} command(s) globally...`);
         await rest.put(
-            Routes.applicationGuildCommands(config.clientId, config.guildId),
+            Routes.applicationCommands(config.clientId),
             { body: commands }
         );
         
-        console.log('✅ Successfully reloaded application (/) commands.');
+        console.log('✅ Successfully reloaded global application (/) commands.');
+        console.log('⏰ Commands may take 5-10 minutes to appear in Discord.');
+        
+        // Also register to specific guild for instant update (if guild ID provided)
+        if (config.guildId) {
+            console.log(`Also registering to guild ${config.guildId} for instant update...`);
+            await rest.put(
+                Routes.applicationGuildCommands(config.clientId, config.guildId),
+                { body: commands }
+            );
+            console.log('✅ Successfully registered commands to guild (instant).');
+        }
+        
     } catch (error) {
         console.error('❌ Error registering commands:', error);
         console.error('Full error details:', error.message);
