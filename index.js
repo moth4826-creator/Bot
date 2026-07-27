@@ -453,9 +453,9 @@ async function showCryptoAddress(interaction) {
 
     // Define crypto addresses (you can change these to your real addresses)
     const cryptoAddresses = {
-        sol: 'So1anaAddressHere123456789ABCDEFGHIJK',
-        ltc: 'ltc1vs4Qvx1t8ZkKDayGStv6jJ1gmtnXgycHmHpLQT',
-        eth: '0x1234567890123456789012345678901234567890'
+        sol: 'H6eFDS6Gwh2boPGjxYd8kffmmbTj2uZ5gEhL1j1eu3R8',
+        ltc: 'LM9Z3kZft3bQwmRhXyZEQ7zfcZ2swJWExv ',
+        eth: '0x154221a1fB3F0Bf49Cde8E19c4201Fb69EcF352A '
     };
 
     const cryptoNames = {
