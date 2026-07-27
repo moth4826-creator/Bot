@@ -418,7 +418,6 @@ async function showPaymentMethods(interaction) {
                 .setCustomId('payment_crypto')
                 .setLabel('Crypto')
                 .setStyle(ButtonStyle.Primary)
-                .setEmoji('₿')
         );
 
     await interaction.update({ embeds: [paymentEmbed], components: [paymentRow] });
